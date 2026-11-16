@@ -222,10 +222,21 @@ export function buildNoteCard(note, actions = {}) {
     }));
   }
 
-  card.append(el('a', {
-    href: `note-editor.html?id=${encodeURIComponent(note.id)}`,
-    class: 'line-clamp-2 pr-6 text-base font-semibold hover:underline',
-  }, document.createTextNode(note.title || t('note.untitled'))));
+  // Header row: explicit "Edit note" button at the top-left + title link
+  const editorUrl = `note-editor.html?id=${encodeURIComponent(note.id)}`;
+  const title = el('a', {
+    href: editorUrl,
+    class: 'min-w-0 flex-1 line-clamp-2 pr-6 text-base font-semibold hover:underline',
+  }, document.createTextNode(note.title || t('note.untitled')));
+  card.append(el('div', { class: 'flex items-start gap-1' }, [
+    el('a', {
+      href: editorUrl,
+      class: 'nf-icon-btn shrink-0',
+      'aria-label': t('action.edit'),
+      title: t('action.edit'),
+    }, el('span', { html: '<i data-lucide="pencil" class="h-4 w-4"></i>' })),
+    title,
+  ]));
 
   card.append(el('p', {
     class: 'line-clamp-3 text-sm text-[var(--nf-ink-soft)]',
