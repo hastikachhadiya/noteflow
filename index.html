@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notes · NoteFlow</title>
+  <meta name="description" content="NoteFlow — a local-first note tracking app. Search, filter, pin, colour and tag your notes.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script>
+    /* Apply saved theme before first paint — prevents a flash */
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('noteflow:theme') || 'null');
+        var dark = saved === 'dark' || (saved !== 'light' && !window.matchMedia('(prefers-color-scheme: light)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      } catch (e) { /* default to dark */ }
+    })();
+  </script>
+  <style>
+    /* Declare cascade layers BEFORE Tailwind loads: our styles sit in `nf`,
+       above Tailwind's base/preflight but below its utilities — so Tailwind
+       utility classes (hidden, pl-9, …) can override our component styles. */
+    @layer theme, base, components, nf;
+    @layer nf {
+    /* ============ NoteFlow shared theme (identical on every page) ============ */
+    :root {
+      --nf-brand: #10b981;
+      --nf-brand-soft: rgba(16, 185, 129, .15);
+      --nf-danger: #e11d48;
+      --nf-bg: #eef2f5;
+      --nf-card: rgba(255, 255, 255, .72);
+      --nf-card-solid: #ffffff;
+      --nf-nav: rgba(255, 255, 255, .72);
+      --nf-line: rgba(15, 23, 42, .10);
+      --nf-ink: #0f172a;
+      --nf-ink-soft: #5c6c7d;
+      --nf-input: #ffffff;
+      --nf-hover: rgba(15, 23, 42, .05);
+      color-scheme: light;
+    }
+    .dark {
+      --nf-bg: #070b11;
+      --nf-card: rgba(255, 255, 255, .05);
+      --nf-card-solid: #0f1a23;
+      --nf-nav: rgba(9, 14, 20, .78);
+      --nf-line: rgba(148, 163, 184, .16);
+      --nf-ink: #e6edf3;
+      --nf-ink-soft: #93a5b8;
+      --nf-input: rgba(255, 255, 255, .06);
+      --nf-hover: rgba(255, 255, 255, .07);
+      color-scheme: dark;
+    }
+    body {
+      font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+      background:
+        radial-gradient(1100px 520px at 85% -10%, rgba(16, 185, 129, .16), transparent 60%),
+        radial-gradient(900px 480px at -10% 110%, rgba(14, 165, 233, .10), transparent 55%),
+        var(--nf-bg);
+      background-attachment: fixed;
+    }
+    .nf-card { background: var(--nf-card); border: 1px solid var(--nf-line); border-radius: 1rem; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .nf-panel { background: var(--nf-card-solid); border: 1px solid var(--nf-line); border-radius: 1rem; }
+    .nf-glass { background: var(--nf-nav); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .nf-input { width: 100%; background: var(--nf-input); border: 1px solid var(--nf-line); border-radius: .65rem; padding: .55rem .75rem; color: var(--nf-ink); font-size: .9rem; transition: border-color .15s, box-shadow .15s; }
+    .nf-input::placeholder { color: var(--nf-ink-soft); }
+    .nf-input:focus { outline: none; border-color: var(--nf-brand); box-shadow: 0 0 0 3px var(--nf-brand-soft); }
+    .nf-input.nf-invalid { border-color: var(--nf-danger); box-shadow: 0 0 0 3px rgba(225, 29, 72, .15); }
+    .nf-input.nf-valid { border-color: var(--nf-brand); }
+    .nf-err { margin-top: .3rem; font-size: .78rem; color: var(--nf-danger); }
+    .nf-btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; border-radius: .65rem; border: 1px solid transparent; padding: .55rem .95rem; font-size: .875rem; font-weight: 600; cursor: pointer; transition: filter .15s, background .15s, opacity .15s; }
+    .nf-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .nf-btn-primary { background: var(--nf-brand); color: #052e22; }
+    .nf-btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+    .nf-btn-ghost { border-color: var(--nf-line); color: var(--nf-ink); }
+    .nf-btn-ghost:hover:not(:disabled) { background: var(--nf-hover); }
+    .nf-btn-danger { background: var(--nf-danger); color: #fff; }
+    .nf-btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
+    .nf-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: .6rem; color: var(--nf-ink-soft); cursor: pointer; transition: background .15s, color .15s; }
+    .nf-icon-btn:hover { background: var(--nf-hover); color: var(--nf-ink); }
+    .nf-icon-btn.nf-danger-hover:hover { color: var(--nf-danger); background: rgba(225, 29, 72, .12); }
+    .nf-chip { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--nf-line); background: var(--nf-input); border-radius: 999px; padding: .18rem .55rem; font-size: .72rem; font-weight: 600; color: var(--nf-ink-soft); }
+    .nf-side-link { display: flex; align-items: center; gap: .65rem; border-radius: .65rem; padding: .55rem .7rem; font-size: .9rem; font-weight: 500; color: var(--nf-ink-soft); transition: background .15s, color .15s; }
+    .nf-side-link:hover { background: var(--nf-hover); color: var(--nf-ink); }
+    .nf-side-link[aria-current="page"] { background: var(--nf-brand-soft); color: var(--nf-brand); font-weight: 600; }
+    .nf-skel { border-radius: .75rem; background: linear-gradient(90deg, var(--nf-input) 25%, var(--nf-hover) 50%, var(--nf-input) 75%); background-size: 200% 100%; animation: nf-shimmer 1.3s infinite; }
+    @keyframes nf-shimmer { to { background-position: -200% 0; } }
+    :focus-visible { outline: 2px solid var(--nf-brand); outline-offset: 2px; }
+    /* Drawer slide — own class so it never depends on Tailwind translate utilities */
+    .nf-drawer { translate: -100% 0; transition: translate .2s ease; }
+    .nf-drawer.nf-open { translate: 0 0; }
+    @media (min-width: 1024px) { .nf-drawer, .nf-drawer.nf-open { translate: none; } }
+    .md-body { font-size: .92rem; line-height: 1.65; overflow-wrap: anywhere; }
+    .md-body h1 { font-size: 1.35rem; font-weight: 700; margin: .5rem 0 .45rem; }
+    .md-body h2 { font-size: 1.15rem; font-weight: 700; margin: .5rem 0 .4rem; }
+    .md-body h3 { font-size: 1rem; font-weight: 600; margin: .5rem 0 .35rem; }
+    .md-body p { margin: .4rem 0; }
+    .md-body ul { list-style: disc; padding-left: 1.35rem; margin: .4rem 0; }
+    .md-body ol { list-style: decimal; padding-left: 1.35rem; margin: .4rem 0; }
+    .md-body blockquote { border-left: 3px solid var(--nf-brand); padding-left: .75rem; margin: .5rem 0; color: var(--nf-ink-soft); }
+    .md-body code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .85em; background: var(--nf-input); border: 1px solid var(--nf-line); border-radius: .35rem; padding: .08rem .35rem; }
+    .md-body pre { background: var(--nf-input); border: 1px solid var(--nf-line); border-radius: .6rem; padding: .75rem; overflow: auto; margin: .5rem 0; }
+    .md-body pre code { background: none; border: none; padding: 0; }
+    .md-body a { color: var(--nf-brand); text-decoration: underline; }
+    .md-body hr { border: none; border-top: 1px solid var(--nf-line); margin: .8rem 0; }
+    .md-body del { opacity: .65; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+    html.nf-no-motion *, html.nf-no-motion *::before, html.nf-no-motion *::after {
+      animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
+    }
+    }
+    </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4" defer></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+</head>
+<body class="min-h-screen text-[var(--nf-ink)] antialiased">
+
+  <div id="nf-nav"></div>
+  <div id="nf-backdrop" class="fixed inset-0 z-40 hidden bg-black/50 lg:hidden"></div>
+
+  <div class="mx-auto flex w-full max-w-7xl gap-6 px-4 py-6 sm:px-6">
+    <div id="nf-sidebar"></div>
+
+    <main id="nf-main" class="min-w-0 flex-1">
+      <header class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight" data-i18n="index.title">Notes</h1>
+          <p class="text-sm text-[var(--nf-ink-soft)]" data-i18n="index.subtitle">Everything you have captured, in one place.</p>
+        </div>
+        <a href="note-editor.html" class="nf-btn nf-btn-primary">
+          <i data-lucide="plus" class="h-4 w-4"></i>
+          <span data-i18n="index.new">New note</span>
+        </a>
+      </header>
+
+      <!-- Search + filters -->
+      <section class="nf-card mb-5 p-3 sm:p-4" aria-label="Search and filters">
+        <div class="relative mb-3">
+          <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--nf-ink-soft)]">
+            <i data-lucide="search" class="h-4 w-4"></i>
+          </span>
+          <input id="nf-search" type="search" class="nf-input pl-9" data-i18n-placeholder="index.search"
+                 placeholder="Search notes…" aria-label="Search notes">
+        </div>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <select id="f-category" class="nf-input" aria-label="Filter by category"></select>
+          <select id="f-colour" class="nf-input" aria-label="Filter by colour"></select>
+          <select id="f-tag" class="nf-input" aria-label="Filter by tag"></select>
+          <select id="f-pin" class="nf-input" aria-label="Filter by pinned"></select>
+          <select id="f-sort" class="nf-input col-span-2 sm:col-span-1" aria-label="Sort notes"></select>
+        </div>
+      </section>
+
+      <!-- Notes grid -->
+      <section id="nf-grid" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-live="polite" aria-label="Notes"></section>
+    </main>
+  </div>
+
+  <footer id="nf-footer"></footer>
+  <div id="nf-modal-root"></div>
+
+  <script type="module">
+    import { initLayout, updateSidebarCounts } from './js/layout.js';
+    import {
+      getNotes, queryNotes, sortNotes, allTags, CATEGORIES, COLOURS,
+      togglePin, archiveNote, trashNote, subscribe,
+    } from './js/notes.js';
+    import { el, icons, toast, emptyState, skeletons, buildNoteCard, debounce, confirmDialog } from './js/ui.js';
+    import { t } from './js/i18n.js';
+
+    initLayout('notes');
+
+    const grid = document.getElementById('nf-grid');
+    const state = { q: '', category: 'all', colour: 'all', tag: 'all', pin: 'all', sort: 'updated-desc' };
+
+    /* ---------------- filter selects ---------------- */
+    function fillSelect(select, options, current) {
+      select.replaceChildren(...options.map((o) => el('option', { value: o.value, text: o.label })));
+      select.value = current;
+    }
+
+    function refreshTagSelect() {
+      const tags = allTags(getNotes());
+      const keep = tags.includes(state.tag) ? state.tag : 'all';
+      fillSelect(
+        document.getElementById('f-tag'),
+        [{ value: 'all', label: t('index.allTags') }, ...tags.map((tag) => ({ value: tag, label: `#${tag}` }))],
+        keep,
+      );
+      state.tag = keep;
+    }
+
+    fillSelect(document.getElementById('f-category'),
+      [{ value: 'all', label: t('index.allCategories') }, ...CATEGORIES.map((c) => ({ value: c, label: c }))], state.category);
+    fillSelect(document.getElementById('f-colour'),
+      [{ value: 'all', label: t('index.allColours') }, ...COLOURS.map((c) => ({ value: c.id, label: c.id }))], state.colour);
+    fillSelect(document.getElementById('f-pin'),
+      [
+        { value: 'all', label: t('index.allPins') },
+        { value: 'pinned', label: t('index.pinOnly') },
+        { value: 'unpinned', label: t('index.unpinOnly') },
+      ], state.pin);
+    fillSelect(document.getElementById('f-sort'),
+      [
+        { value: 'updated-desc', label: t('index.sortUpdatedDesc') },
+        { value: 'updated-asc', label: t('index.sortUpdatedAsc') },
+        { value: 'created-desc', label: t('index.sortCreatedDesc') },
+        { value: 'title-asc', label: t('index.sortTitleAsc') },
+        { value: 'title-desc', label: t('index.sortTitleDesc') },
+      ], state.sort);
+    refreshTagSelect();
+
+    /* ---------------- rendering ---------------- */
+    function render() {
+      const notes = sortNotes(queryNotes(getNotes(), state), state.sort);
+      grid.replaceChildren();
+      if (!notes.length) {
+        emptyState(grid, { icon: 'sticky-note', title: t('index.emptyTitle'), msg: t('index.emptyMsg') });
+        icons();
+        return;
+      }
+      for (const note of notes) {
+        grid.append(buildNoteCard(note, {
+          onPin: () => { togglePin(note.id); toast(t(note.pinned ? 'toast.unpinned' : 'toast.pinned')); },
+          onArchive: () => { archiveNote(note.id); toast(t('toast.archived')); },
+          onTrash: async () => {
+            const ok = await confirmDialog({
+              title: t('confirm.trashTitle'),
+              message: t('confirm.trashMsg'),
+              confirmText: t('action.trash'),
+              danger: true,
+            });
+            if (ok) { trashNote(note.id); toast(t('toast.trashed')); }
+          },
+        }));
+      }
+      icons();
+    }
+
+    /* ---------------- events ---------------- */
+    document.getElementById('nf-search').addEventListener('input', debounce((e) => {
+      state.q = e.target.value;
+      render();
+    }, 250));
+
+    for (const [id, key] of [['f-category', 'category'], ['f-colour', 'colour'], ['f-tag', 'tag'], ['f-pin', 'pin'], ['f-sort', 'sort']]) {
+      document.getElementById(id).addEventListener('change', (e) => {
+        state[key] = e.target.value;
+        render();
+      });
+    }
+
+    /* initial load: brief skeleton, then render */
+    skeletons(grid, 6);
+    setTimeout(render, 350);
+
+    subscribe(() => { refreshTagSelect(); render(); updateSidebarCounts(); });
+  </script>
+</body>
+</html>

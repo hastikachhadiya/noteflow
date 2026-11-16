@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profile · NoteFlow</title>
+  <meta name="description" content="Your NoteFlow stats and data tools — export, import and manage your local notes.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script>
+    /* Apply saved theme before first paint — prevents a flash */
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('noteflow:theme') || 'null');
+        var dark = saved === 'dark' || (saved !== 'light' && !window.matchMedia('(prefers-color-scheme: light)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      } catch (e) { /* default to dark */ }
+    })();
+  </script>
+  <style>
+    /* Declare cascade layers BEFORE Tailwind loads: our styles sit in `nf`,
+       above Tailwind's base/preflight but below its utilities — so Tailwind
+       utility classes (hidden, pl-9, …) can override our component styles. */
+    @layer theme, base, components, nf;
+    @layer nf {
+    /* ============ NoteFlow shared theme (identical on every page) ============ */
+    :root {
+      --nf-brand: #10b981;
+      --nf-brand-soft: rgba(16, 185, 129, .15);
+      --nf-danger: #e11d48;
+      --nf-bg: #eef2f5;
+      --nf-card: rgba(255, 255, 255, .72);
+      --nf-card-solid: #ffffff;
+      --nf-nav: rgba(255, 255, 255, .72);
+      --nf-line: rgba(15, 23, 42, .10);
+      --nf-ink: #0f172a;
+      --nf-ink-soft: #5c6c7d;
+      --nf-input: #ffffff;
+      --nf-hover: rgba(15, 23, 42, .05);
+      color-scheme: light;
+    }
+    .dark {
+      --nf-bg: #070b11;
+      --nf-card: rgba(255, 255, 255, .05);
+      --nf-card-solid: #0f1a23;
+      --nf-nav: rgba(9, 14, 20, .78);
+      --nf-line: rgba(148, 163, 184, .16);
+      --nf-ink: #e6edf3;
+      --nf-ink-soft: #93a5b8;
+      --nf-input: rgba(255, 255, 255, .06);
+      --nf-hover: rgba(255, 255, 255, .07);
+      color-scheme: dark;
+    }
+    body {
+      font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+      background:
+        radial-gradient(1100px 520px at 85% -10%, rgba(16, 185, 129, .16), transparent 60%),
+        radial-gradient(900px 480px at -10% 110%, rgba(14, 165, 233, .10), transparent 55%),
+        var(--nf-bg);
+      background-attachment: fixed;
+    }
+    .nf-card { background: var(--nf-card); border: 1px solid var(--nf-line); border-radius: 1rem; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .nf-panel { background: var(--nf-card-solid); border: 1px solid var(--nf-line); border-radius: 1rem; }
+    .nf-glass { background: var(--nf-nav); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .nf-input { width: 100%; background: var(--nf-input); border: 1px solid var(--nf-line); border-radius: .65rem; padding: .55rem .75rem; color: var(--nf-ink); font-size: .9rem; transition: border-color .15s, box-shadow .15s; }
+    .nf-input::placeholder { color: var(--nf-ink-soft); }
+    .nf-input:focus { outline: none; border-color: var(--nf-brand); box-shadow: 0 0 0 3px var(--nf-brand-soft); }
+    .nf-input.nf-invalid { border-color: var(--nf-danger); box-shadow: 0 0 0 3px rgba(225, 29, 72, .15); }
+    .nf-input.nf-valid { border-color: var(--nf-brand); }
+    .nf-err { margin-top: .3rem; font-size: .78rem; color: var(--nf-danger); }
+    .nf-btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; border-radius: .65rem; border: 1px solid transparent; padding: .55rem .95rem; font-size: .875rem; font-weight: 600; cursor: pointer; transition: filter .15s, background .15s, opacity .15s; }
+    .nf-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .nf-btn-primary { background: var(--nf-brand); color: #052e22; }
+    .nf-btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+    .nf-btn-ghost { border-color: var(--nf-line); color: var(--nf-ink); }
+    .nf-btn-ghost:hover:not(:disabled) { background: var(--nf-hover); }
+    .nf-btn-danger { background: var(--nf-danger); color: #fff; }
+    .nf-btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
+    .nf-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: .6rem; color: var(--nf-ink-soft); cursor: pointer; transition: background .15s, color .15s; }
+    .nf-icon-btn:hover { background: var(--nf-hover); color: var(--nf-ink); }
+    .nf-icon-btn.nf-danger-hover:hover { color: var(--nf-danger); background: rgba(225, 29, 72, .12); }
+    .nf-chip { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--nf-line); background: var(--nf-input); border-radius: 999px; padding: .18rem .55rem; font-size: .72rem; font-weight: 600; color: var(--nf-ink-soft); }
+    .nf-side-link { display: flex; align-items: center; gap: .65rem; border-radius: .65rem; padding: .55rem .7rem; font-size: .9rem; font-weight: 500; color: var(--nf-ink-soft); transition: background .15s, color .15s; }
+    .nf-side-link:hover { background: var(--nf-hover); color: var(--nf-ink); }
+    .nf-side-link[aria-current="page"] { background: var(--nf-brand-soft); color: var(--nf-brand); font-weight: 600; }
+    .nf-skel { border-radius: .75rem; background: linear-gradient(90deg, var(--nf-input) 25%, var(--nf-hover) 50%, var(--nf-input) 75%); background-size: 200% 100%; animation: nf-shimmer 1.3s infinite; }
+    @keyframes nf-shimmer { to { background-position: -200% 0; } }
+    :focus-visible { outline: 2px solid var(--nf-brand); outline-offset: 2px; }
+    /* Drawer slide — own class so it never depends on Tailwind translate utilities */
+    .nf-drawer { translate: -100% 0; transition: translate .2s ease; }
+    .nf-drawer.nf-open { translate: 0 0; }
+    @media (min-width: 1024px) { .nf-drawer, .nf-drawer.nf-open { translate: none; } }
+    .md-body { font-size: .92rem; line-height: 1.65; overflow-wrap: anywhere; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+    html.nf-no-motion *, html.nf-no-motion *::before, html.nf-no-motion *::after {
+      animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
+    }
+    }
+    </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4" defer></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+</head>
+<body class="min-h-screen text-[var(--nf-ink)] antialiased">
+
+  <div id="nf-nav"></div>
+  <div id="nf-backdrop" class="fixed inset-0 z-40 hidden bg-black/50 lg:hidden"></div>
+
+  <div class="mx-auto flex w-full max-w-7xl gap-6 px-4 py-6 sm:px-6">
+    <div id="nf-sidebar"></div>
+
+    <main id="nf-main" class="min-w-0 flex-1">
+      <header class="mb-5">
+        <h1 class="text-2xl font-bold tracking-tight" data-i18n="profile.title">Profile</h1>
+        <p class="text-sm text-[var(--nf-ink-soft)]" data-i18n="profile.subtitle">A quick look at your notes and your data tools.</p>
+      </header>
+
+      <!-- Stats -->
+      <section class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4" aria-label="Statistics">
+        <div class="nf-card p-4">
+          <i data-lucide="sticky-note" class="h-5 w-5" style="color:var(--nf-brand)"></i>
+          <p id="stat-total" class="mt-2 text-3xl font-extrabold">0</p>
+          <p class="text-xs font-medium text-[var(--nf-ink-soft)]" data-i18n="profile.total">Active notes</p>
+        </div>
+        <div class="nf-card p-4">
+          <i data-lucide="pin" class="h-5 w-5" style="color:var(--nf-brand)"></i>
+          <p id="stat-pinned" class="mt-2 text-3xl font-extrabold">0</p>
+          <p class="text-xs font-medium text-[var(--nf-ink-soft)]" data-i18n="profile.pinned">Pinned</p>
+        </div>
+        <div class="nf-card p-4">
+          <i data-lucide="archive" class="h-5 w-5" style="color:var(--nf-brand)"></i>
+          <p id="stat-archived" class="mt-2 text-3xl font-extrabold">0</p>
+          <p class="text-xs font-medium text-[var(--nf-ink-soft)]" data-i18n="profile.archived">Archived</p>
+        </div>
+        <div class="nf-card p-4">
+          <i data-lucide="trash-2" class="h-5 w-5" style="color:var(--nf-brand)"></i>
+          <p id="stat-trashed" class="mt-2 text-3xl font-extrabold">0</p>
+          <p class="text-xs font-medium text-[var(--nf-ink-soft)]" data-i18n="profile.trashed">In trash</p>
+        </div>
+      </section>
+
+      <!-- Data tools -->
+      <section class="nf-card mb-4 p-5">
+        <h2 class="text-base font-semibold" data-i18n="profile.dataTitle">Your data</h2>
+        <p class="mt-1 text-sm text-[var(--nf-ink-soft)]" data-i18n="profile.dataHint">
+          Export all notes to a JSON file, or import a previous backup.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="nf-export" type="button" class="nf-btn nf-btn-primary">
+            <i data-lucide="download" class="h-4 w-4"></i>
+            <span data-i18n="profile.export">Export JSON</span>
+          </button>
+          <button id="nf-import-btn" type="button" class="nf-btn nf-btn-ghost">
+            <i data-lucide="upload" class="h-4 w-4"></i>
+            <span data-i18n="profile.import">Import JSON</span>
+          </button>
+          <input id="nf-import" type="file" accept="application/json,.json" class="hidden" aria-label="Import JSON file">
+        </div>
+      </section>
+
+      <!-- Danger zone -->
+      <section class="nf-card p-5" style="border-color:rgba(225,29,72,.4)">
+        <h2 class="text-base font-semibold" style="color:var(--nf-danger)" data-i18n="profile.dangerTitle">Danger zone</h2>
+        <p class="mt-1 text-sm text-[var(--nf-ink-soft)]" data-i18n="profile.dangerHint">Irreversible actions — please be certain.</p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="nf-clear" type="button" class="nf-btn nf-btn-danger">
+            <i data-lucide="shield-x" class="h-4 w-4"></i>
+            <span data-i18n="profile.clear">Clear all data</span>
+          </button>
+          <button id="nf-samples" type="button" class="nf-btn nf-btn-ghost">
+            <i data-lucide="sprout" class="h-4 w-4"></i>
+            <span data-i18n="profile.samples">Restore sample notes</span>
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer id="nf-footer"></footer>
+  <div id="nf-modal-root"></div>
+
+  <script type="module">
+    import { initLayout, updateSidebarCounts } from './js/layout.js';
+    import { getNotes, counts, clearAllNotes, importNotes, ensureSeed, subscribe } from './js/notes.js';
+    import { el, icons, toast, dialog, confirmDialog } from './js/ui.js';
+    import { t } from './js/i18n.js';
+
+    initLayout('profile');
+
+    /* ---------------- stats ---------------- */
+    function renderStats() {
+      const c = counts();
+      document.getElementById('stat-total').textContent = String(c.total);
+      document.getElementById('stat-pinned').textContent = String(c.pinned);
+      document.getElementById('stat-archived').textContent = String(c.archived);
+      document.getElementById('stat-trashed').textContent = String(c.trashed);
+    }
+    renderStats();
+    subscribe(() => { renderStats(); updateSidebarCounts(); });
+
+    /* ---------------- export ---------------- */
+    document.getElementById('nf-export').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(getNotes(), null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = el('a', { href: url, download: `noteflow-notes-${new Date().toISOString().slice(0, 10)}.json` });
+      link.click();
+      URL.revokeObjectURL(url);
+      toast(t('toast.exported'));
+    });
+
+    /* ---------------- import ---------------- */
+    const fileInput = document.getElementById('nf-import');
+    document.getElementById('nf-import-btn').addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      fileInput.value = ''; // allow re-selecting the same file
+      if (!file) return;
+
+      let raw;
+      try {
+        raw = JSON.parse(await file.text());
+      } catch {
+        toast(t('toast.importFailed'), 'error');
+        return;
+      }
+      if (!Array.isArray(raw)) {
+        toast(t('toast.importFailed'), 'error');
+        return;
+      }
+      if (!raw.some((item) => item && typeof item.title === 'string' && typeof item.content === 'string')) {
+        toast(t('toast.importEmpty'), 'error');
+        return;
+      }
+
+      const mode = await dialog({
+        title: t('profile.importTitle'),
+        message: t('profile.importMsg'),
+        actions: [
+          { label: t('profile.merge'), value: 'merge', style: 'primary' },
+          { label: t('profile.replace'), value: 'replace', style: 'danger' },
+        ],
+      });
+      if (!mode) return;
+
+      const imported = importNotes(raw, mode);
+      if (imported > 0) toast(t('toast.imported', { count: imported }));
+      else toast(t('toast.importEmpty'), 'error');
+    });
+
+    /* ---------------- danger zone ---------------- */
+    document.getElementById('nf-clear').addEventListener('click', async () => {
+      const ok = await confirmDialog({
+        title: t('confirm.clearTitle'),
+        message: t('confirm.clearMsg'),
+        confirmText: t('profile.clear'),
+        danger: true,
+      });
+      if (ok) { clearAllNotes(); toast(t('toast.cleared')); }
+    });
+
+    document.getElementById('nf-samples').addEventListener('click', () => {
+      ensureSeed(true);
+      toast(t('toast.seeded'));
+    });
+
+    icons();
+  </script>
+</body>
+</html>

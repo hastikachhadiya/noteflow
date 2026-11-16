@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit note · NoteFlow</title>
+  <meta name="description" content="Create or edit a note in NoteFlow — Markdown editor with live preview, tags, colour labels and due dates.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script>
+    /* Apply saved theme before first paint — prevents a flash */
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('noteflow:theme') || 'null');
+        var dark = saved === 'dark' || (saved !== 'light' && !window.matchMedia('(prefers-color-scheme: light)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      } catch (e) { /* default to dark */ }
+    })();
+  </script>
+  <style>
+    /* Declare cascade layers BEFORE Tailwind loads: our styles sit in `nf`,
+       above Tailwind's base/preflight but below its utilities — so Tailwind
+       utility classes (hidden, pl-9, …) can override our component styles. */
+    @layer theme, base, components, nf;
+    @layer nf {
+    /* ============ NoteFlow shared theme (identical on every page) ============ */
+    :root {
+      --nf-brand: #10b981;
+      --nf-brand-soft: rgba(16, 185, 129, .15);
+      --nf-danger: #e11d48;
+      --nf-bg: #eef2f5;
+      --nf-card: rgba(255, 255, 255, .72);
+      --nf-card-solid: #ffffff;
+      --nf-nav: rgba(255, 255, 255, .72);
+      --nf-line: rgba(15, 23, 42, .10);
+      --nf-ink: #0f172a;
+      --nf-ink-soft: #5c6c7d;
+      --nf-input: #ffffff;
+      --nf-hover: rgba(15, 23, 42, .05);
+      color-scheme: light;
+    }
+    .dark {
+      --nf-bg: #070b11;
+      --nf-card: rgba(255, 255, 255, .05);
+      --nf-card-solid: #0f1a23;
+      --nf-nav: rgba(9, 14, 20, .78);
+      --nf-line: rgba(148, 163, 184, .16);
+      --nf-ink: #e6edf3;
+      --nf-ink-soft: #93a5b8;
+      --nf-input: rgba(255, 255, 255, .06);
+      --nf-hover: rgba(255, 255, 255, .07);
+      color-scheme: dark;
+    }
+    body {
+      font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+      background:
+        radial-gradient(1100px 520px at 85% -10%, rgba(16, 185, 129, .16), transparent 60%),
+        radial-gradient(900px 480px at -10% 110%, rgba(14, 165, 233, .10), transparent 55%),
+        var(--nf-bg);
+      background-attachment: fixed;
+    }
+    .nf-card { background: var(--nf-card); border: 1px solid var(--nf-line); border-radius: 1rem; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .nf-panel { background: var(--nf-card-solid); border: 1px solid var(--nf-line); border-radius: 1rem; }
+    .nf-glass { background: var(--nf-nav); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .nf-input { width: 100%; background: var(--nf-input); border: 1px solid var(--nf-line); border-radius: .65rem; padding: .55rem .75rem; color: var(--nf-ink); font-size: .9rem; transition: border-color .15s, box-shadow .15s; }
+    .nf-input::placeholder { color: var(--nf-ink-soft); }
+    .nf-input:focus { outline: none; border-color: var(--nf-brand); box-shadow: 0 0 0 3px var(--nf-brand-soft); }
+    .nf-input.nf-invalid { border-color: var(--nf-danger); box-shadow: 0 0 0 3px rgba(225, 29, 72, .15); }
+    .nf-input.nf-valid { border-color: var(--nf-brand); }
+    .nf-err { margin-top: .3rem; font-size: .78rem; color: var(--nf-danger); }
+    .nf-btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; border-radius: .65rem; border: 1px solid transparent; padding: .55rem .95rem; font-size: .875rem; font-weight: 600; cursor: pointer; transition: filter .15s, background .15s, opacity .15s; }
+    .nf-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .nf-btn-primary { background: var(--nf-brand); color: #052e22; }
+    .nf-btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+    .nf-btn-ghost { border-color: var(--nf-line); color: var(--nf-ink); }
+    .nf-btn-ghost:hover:not(:disabled) { background: var(--nf-hover); }
+    .nf-btn-danger { background: var(--nf-danger); color: #fff; }
+    .nf-btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
+    .nf-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: .6rem; color: var(--nf-ink-soft); cursor: pointer; transition: background .15s, color .15s; }
+    .nf-icon-btn:hover { background: var(--nf-hover); color: var(--nf-ink); }
+    .nf-icon-btn.nf-danger-hover:hover { color: var(--nf-danger); background: rgba(225, 29, 72, .12); }
+    .nf-chip { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--nf-line); background: var(--nf-input); border-radius: 999px; padding: .18rem .55rem; font-size: .72rem; font-weight: 600; color: var(--nf-ink-soft); }
+    .nf-side-link { display: flex; align-items: center; gap: .65rem; border-radius: .65rem; padding: .55rem .7rem; font-size: .9rem; font-weight: 500; color: var(--nf-ink-soft); transition: background .15s, color .15s; }
+    .nf-side-link:hover { background: var(--nf-hover); color: var(--nf-ink); }
+    .nf-side-link[aria-current="page"] { background: var(--nf-brand-soft); color: var(--nf-brand); font-weight: 600; }
+    .nf-skel { border-radius: .75rem; background: linear-gradient(90deg, var(--nf-input) 25%, var(--nf-hover) 50%, var(--nf-input) 75%); background-size: 200% 100%; animation: nf-shimmer 1.3s infinite; }
+    @keyframes nf-shimmer { to { background-position: -200% 0; } }
+    :focus-visible { outline: 2px solid var(--nf-brand); outline-offset: 2px; }
+    /* Drawer slide — own class so it never depends on Tailwind translate utilities */
+    .nf-drawer { translate: -100% 0; transition: translate .2s ease; }
+    .nf-drawer.nf-open { translate: 0 0; }
+    @media (min-width: 1024px) { .nf-drawer, .nf-drawer.nf-open { translate: none; } }
+    .md-body { font-size: .92rem; line-height: 1.65; overflow-wrap: anywhere; }
+    .md-body h1 { font-size: 1.35rem; font-weight: 700; margin: .5rem 0 .45rem; }
+    .md-body h2 { font-size: 1.15rem; font-weight: 700; margin: .5rem 0 .4rem; }
+    .md-body h3 { font-size: 1rem; font-weight: 600; margin: .5rem 0 .35rem; }
+    .md-body p { margin: .4rem 0; }
+    .md-body ul { list-style: disc; padding-left: 1.35rem; margin: .4rem 0; }
+    .md-body ol { list-style: decimal; padding-left: 1.35rem; margin: .4rem 0; }
+    .md-body blockquote { border-left: 3px solid var(--nf-brand); padding-left: .75rem; margin: .5rem 0; color: var(--nf-ink-soft); }
+    .md-body code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .85em; background: var(--nf-input); border: 1px solid var(--nf-line); border-radius: .35rem; padding: .08rem .35rem; }
+    .md-body pre { background: var(--nf-input); border: 1px solid var(--nf-line); border-radius: .6rem; padding: .75rem; overflow: auto; margin: .5rem 0; }
+    .md-body pre code { background: none; border: none; padding: 0; }
+    .md-body a { color: var(--nf-brand); text-decoration: underline; }
+    .md-body hr { border: none; border-top: 1px solid var(--nf-line); margin: .8rem 0; }
+    .md-body del { opacity: .65; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+    html.nf-no-motion *, html.nf-no-motion *::before, html.nf-no-motion *::after {
+      animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
+    }
+    }
+    </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4" defer></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+</head>
+<body class="min-h-screen text-[var(--nf-ink)] antialiased">
+
+  <div id="nf-nav"></div>
+  <div id="nf-backdrop" class="fixed inset-0 z-40 hidden bg-black/50 lg:hidden"></div>
+
+  <div class="mx-auto flex w-full max-w-7xl gap-6 px-4 py-6 sm:px-6">
+    <div id="nf-sidebar"></div>
+
+    <main id="nf-main" class="min-w-0 flex-1">
+      <header class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="nf-icon-btn" aria-label="Back to notes" data-i18n-aria="action.back">
+            <i data-lucide="arrow-left" class="h-5 w-5"></i>
+          </a>
+          <h1 id="nf-heading" class="text-2xl font-bold tracking-tight" data-i18n="editor.newTitle">New note</h1>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="nf-delete" type="button" class="nf-btn nf-btn-danger hidden">
+            <i data-lucide="trash-2" class="h-4 w-4"></i>
+            <span data-i18n="editor.delete">Delete</span>
+          </button>
+          <a href="index.html" class="nf-btn nf-btn-ghost" data-i18n="action.cancel">Cancel</a>
+          <button id="nf-save" type="submit" form="nf-form" class="nf-btn nf-btn-primary" disabled>
+            <i data-lucide="check" class="h-4 w-4"></i>
+            <span data-i18n="action.save">Save</span>
+          </button>
+        </div>
+      </header>
+
+      <form id="nf-form" novalidate class="grid items-start gap-4 lg:grid-cols-2">
+        <!-- Left: fields -->
+        <section class="nf-card flex flex-col gap-4 p-4 sm:p-5">
+          <div>
+            <label for="nf-title" class="mb-1 block text-sm font-medium" data-i18n="editor.titleLabel">Title</label>
+            <input id="nf-title" name="title" type="text" class="nf-input" maxlength="100"
+                   data-i18n-placeholder="editor.phTitle" placeholder="Note title…" autocomplete="off">
+            <p id="err-title" class="nf-err" hidden></p>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="nf-category" class="mb-1 block text-sm font-medium" data-i18n="editor.categoryLabel">Category</label>
+              <select id="nf-category" name="category" class="nf-input"></select>
+              <p id="err-category" class="nf-err" hidden></p>
+            </div>
+            <div>
+              <label for="nf-due" class="mb-1 block text-sm font-medium" data-i18n="editor.dueLabel">Due date</label>
+              <input id="nf-due" name="dueDate" type="date" class="nf-input">
+              <p id="err-due" class="nf-err" hidden></p>
+            </div>
+          </div>
+
+          <div>
+            <span id="lbl-colour" class="mb-1 block text-sm font-medium" data-i18n="editor.colourLabel">Colour</span>
+            <div id="nf-colours" class="flex flex-wrap gap-2" role="group" aria-labelledby="lbl-colour"></div>
+          </div>
+
+          <div>
+            <label for="nf-tag-input" class="mb-1 block text-sm font-medium" data-i18n="editor.tagsLabel">Tags</label>
+            <div class="flex gap-2">
+              <input id="nf-tag-input" type="text" class="nf-input" data-i18n-placeholder="editor.phTag"
+                     placeholder="Add a tag…" autocomplete="off">
+              <button id="nf-tag-add" type="button" class="nf-btn nf-btn-ghost shrink-0" data-i18n="action.add">Add</button>
+            </div>
+            <div id="nf-tags" class="mt-2 flex flex-wrap gap-1.5"></div>
+            <p id="err-tags" class="nf-err" hidden></p>
+            <p class="mt-1 text-xs text-[var(--nf-ink-soft)]" data-i18n="editor.tagsHint">
+              Up to 5 tags, 2–20 characters each. Press Enter or Add.
+            </p>
+          </div>
+
+          <div>
+            <div class="mb-1 flex items-center justify-between gap-2">
+              <label for="nf-content" class="block text-sm font-medium" data-i18n="editor.contentLabel">Content (Markdown)</label>
+              <span id="nf-counter" class="text-xs text-[var(--nf-ink-soft)]" aria-live="polite">0 / 5000</span>
+            </div>
+            <!-- Markdown toolbar -->
+            <div class="mb-2 flex flex-wrap gap-1" role="toolbar" aria-label="Markdown formatting">
+              <button type="button" class="nf-icon-btn" data-md="bold" title="Bold" aria-label="Bold"><i data-lucide="bold" class="h-4 w-4"></i></button>
+              <button type="button" class="nf-icon-btn" data-md="italic" title="Italic" aria-label="Italic"><i data-lucide="italic" class="h-4 w-4"></i></button>
+              <button type="button" class="nf-icon-btn" data-md="h2" title="Heading" aria-label="Heading"><i data-lucide="heading-2" class="h-4 w-4"></i></button>
+              <button type="button" class="nf-icon-btn" data-md="ul" title="Bullet list" aria-label="Bullet list"><i data-lucide="list" class="h-4 w-4"></i></button>
+              <button type="button" class="nf-icon-btn" data-md="ol" title="Numbered list" aria-label="Numbered list"><i data-lucide="list-ordered" class="h-4 w-4"></i></button>
+              <button type="button" class="nf-icon-btn" data-md="quote" title="Quote" aria-label="Quote"><i data-lucide="text-quote" class="h-4 w-4"></i></button>
+              <button type="button" class="nf-icon-btn" data-md="code" title="Inline code" aria-label="Inline code"><i data-lucide="code" class="h-4 w-4"></i></button>
+              <button type="button" class="nf-icon-btn" data-md="link" title="Link" aria-label="Link"><i data-lucide="link" class="h-4 w-4"></i></button>
+            </div>
+            <textarea id="nf-content" name="content" class="nf-input min-h-56 resize-y font-mono text-sm" rows="10"
+                      data-i18n-placeholder="editor.phContent" placeholder="Write your note in Markdown…"></textarea>
+            <p id="err-content" class="nf-err" hidden></p>
+          </div>
+        </section>
+
+        <!-- Right: live preview -->
+        <section class="nf-card p-4 sm:p-5">
+          <h2 class="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-[var(--nf-ink-soft)]">
+            <i data-lucide="eye" class="h-4 w-4"></i>
+            <span data-i18n="editor.preview">Preview</span>
+          </h2>
+          <div id="nf-preview" class="md-body min-h-48"></div>
+        </section>
+      </form>
+    </main>
+  </div>
+
+  <footer id="nf-footer"></footer>
+  <div id="nf-modal-root"></div>
+
+  <script type="module">
+    import { initLayout } from './js/layout.js';
+    import { getNote, createNote, updateNote, trashNote, CATEGORIES, COLOURS } from './js/notes.js';
+    import { attachValidation, V, updateCounter } from './js/validation.js';
+    import { el, icons, toast, confirmDialog, renderMarkdown } from './js/ui.js';
+    import { t } from './js/i18n.js';
+
+    initLayout('notes');
+
+    /* ---------------- resolve note (edit vs new) ---------------- */
+    const params = new URLSearchParams(location.search);
+    const editId = params.get('id');
+    const existing = editId ? getNote(editId) : null;
+
+    if (editId && !existing) {
+      toast(t('editor.notFound'), 'error');
+      location.replace('index.html');
+    }
+
+    const title = document.getElementById('nf-title');
+    const content = document.getElementById('nf-content');
+    const preview = document.getElementById('nf-preview');
+    const counter = document.getElementById('nf-counter');
+    const heading = document.getElementById('nf-heading');
+    const deleteBtn = document.getElementById('nf-delete');
+    const tagInput = document.getElementById('nf-tag-input');
+
+    if (existing) {
+      heading.textContent = t('editor.editTitle');
+      document.title = `Edit note · NoteFlow`;
+      title.value = existing.title;
+      content.value = existing.content;
+      document.getElementById('nf-due').value = existing.dueDate ?? '';
+      deleteBtn.classList.remove('hidden');
+    }
+
+    /* ---------------- category select ---------------- */
+    const categorySelect = document.getElementById('nf-category');
+    // Due dates can be today or later — block past days in the picker too.
+    document.getElementById('nf-due').min = new Date().toISOString().slice(0, 10);
+    categorySelect.replaceChildren(...CATEGORIES.map((c) => el('option', { value: c, text: c })));
+    if (existing) categorySelect.value = existing.category;
+
+    /* ---------------- colour swatches ---------------- */
+    let colour = existing?.colour ?? 'emerald';
+    const colourHost = document.getElementById('nf-colours');
+
+    function renderColours() {
+      colourHost.replaceChildren(...COLOURS.map((c) => {
+        const selected = c.id === colour;
+        const btn = el('button', {
+          type: 'button',
+          class: 'h-7 w-7 rounded-full border-2 transition-transform',
+          style: `background:${c.hex};border-color:${selected ? 'var(--nf-ink)' : 'transparent'}`,
+          'aria-label': c.id,
+          'aria-pressed': String(selected),
+          title: c.id,
+        });
+        if (selected) btn.style.transform = 'scale(1.15)';
+        btn.addEventListener('click', () => { colour = c.id; renderColours(); });
+        return btn;
+      }));
+    }
+    renderColours();
+
+    /* ---------------- tags ---------------- */
+    let tags = existing ? [...existing.tags] : [];
+    const tagHost = document.getElementById('nf-tags');
+
+    function renderTags() {
+      tagHost.replaceChildren(...tags.map((tag, i) => {
+        const chip = el('span', { class: 'nf-chip' }, document.createTextNode(`#${tag}`));
+        const remove = el('button', {
+          type: 'button',
+          class: 'ml-0.5 text-sm leading-none',
+          style: 'color:var(--nf-ink-soft)',
+          'aria-label': `${t('action.delete')}: ${tag}`,
+        }, document.createTextNode('×'));
+        remove.addEventListener('click', () => { tags.splice(i, 1); renderTags(); api.refresh(); });
+        chip.append(remove);
+        return chip;
+      }));
+    }
+
+    function addTag() {
+      const value = tagInput.value.trim().slice(0, 20);
+      if (!value) return;
+      if (value.length < 2) { api.setFieldError('tags', t('v.tagLen')); return; }
+      if (tags.includes(value)) { api.setFieldError('tags', t('v.tagDup')); return; }
+      if (tags.length >= 5) { api.setFieldError('tags', t('v.tagCount')); return; }
+      tags.push(value);
+      tagInput.value = '';
+      api.setFieldError('tags', null);
+      renderTags();
+    }
+
+    document.getElementById('nf-tag-add').addEventListener('click', addTag);
+    tagInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); }
+    });
+    renderTags();
+
+    /* ---------------- markdown toolbar + preview ---------------- */
+    function surround(before, after = before) {
+      const start = content.selectionStart;
+      const end = content.selectionEnd;
+      const value = content.value;
+      content.value = value.slice(0, start) + before + value.slice(start, end) + after + value.slice(end);
+      const pos = end + before.length + after.length;
+      content.focus();
+      content.setSelectionRange(pos, pos);
+      content.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function prefixLine(prefix) {
+      const start = content.selectionStart;
+      const lineStart = content.value.lastIndexOf('\n', start - 1) + 1;
+      const value = content.value;
+      content.value = value.slice(0, lineStart) + prefix + value.slice(lineStart);
+      const pos = start + prefix.length;
+      content.focus();
+      content.setSelectionRange(pos, pos);
+      content.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    const mdActions = {
+      bold: () => surround('**'),
+      italic: () => surround('*'),
+      h2: () => prefixLine('## '),
+      ul: () => prefixLine('- '),
+      ol: () => prefixLine('1. '),
+      quote: () => prefixLine('> '),
+      code: () => surround('`'),
+      link: () => surround('[', '](https://)'),
+    };
+    document.querySelectorAll('[data-md]').forEach((btn) => {
+      btn.addEventListener('click', () => mdActions[btn.dataset.md]?.());
+    });
+
+    function refreshPreview() {
+      preview.innerHTML = renderMarkdown(content.value); // source is escaped inside
+      updateCounter(content, counter, 5000);
+    }
+    content.addEventListener('input', refreshPreview);
+    refreshPreview();
+
+    /* ---------------- validation ---------------- */
+    const api = attachValidation({
+      form: document.getElementById('nf-form'),
+      fields: [
+        {
+          name: 'title', input: title, error: document.getElementById('err-title'),
+          rules: [V.required(t('v.required')), V.minLen(3, t('v.titleLen')), V.maxLen(100, t('v.titleLen'))],
+        },
+        {
+          name: 'content', input: content, error: document.getElementById('err-content'),
+          rules: [V.required(t('v.required')), V.maxLen(5000, t('v.contentMax'))],
+        },
+        {
+          name: 'category', input: categorySelect, error: document.getElementById('err-category'),
+          rules: [V.oneOf(CATEGORIES, t('v.category'))],
+        },
+        {
+          name: 'dueDate', input: document.getElementById('nf-due'), error: document.getElementById('err-due'),
+          rules: [V.notPast(t('v.duePast'))],
+        },
+        {
+          name: 'tags', input: tagInput, error: document.getElementById('err-tags'),
+          get: () => tags,
+          rules: [
+            V.maxItems(5, t('v.tagCount')),
+            V.everyItem((tag) => tag.trim().length >= 2 && tag.trim().length <= 20, t('v.tagLen')),
+            V.noDuplicates(t('v.tagDup')),
+          ],
+        },
+      ],
+      onSubmit: async (values) => {
+        const payload = {
+          title: values.title.trim(),
+          content: values.content,
+          category: values.category,
+          tags: [...tags],
+          colour,
+          dueDate: values.dueDate || null,
+          pinned: existing?.pinned ?? false,
+        };
+        if (existing) updateNote(existing.id, payload);
+        else createNote(payload);
+        toast(t('toast.saved'));
+        location.href = 'index.html';
+      },
+    });
+
+    /* ---------------- delete (edit mode) ---------------- */
+    deleteBtn.addEventListener('click', async () => {
+      const ok = await confirmDialog({
+        title: t('confirm.trashTitle'),
+        message: t('confirm.trashMsg'),
+        confirmText: t('action.trash'),
+        danger: true,
+      });
+      if (ok) { trashNote(existing.id); toast(t('toast.trashed')); location.href = 'index.html'; }
+    });
+
+    icons();
+  </script>
+</body>
+</html>
