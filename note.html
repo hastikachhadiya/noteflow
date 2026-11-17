@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>View note · NoteFlow</title>
+  <meta name="description" content="View a note in full screen in NoteFlow.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('noteflow:theme') || 'null');
+        var dark = saved === 'dark' || (saved !== 'light' && !window.matchMedia('(prefers-color-scheme: light)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      } catch (e) { }
+    })();
+  </script>
+  <link rel="stylesheet" href="assets/theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4" defer></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" defer></script>
+</head>
+<body class="min-h-screen text-[var(--nf-ink)] antialiased">
+
+  <div id="nf-nav"></div>
+  <div id="nf-backdrop" class="fixed inset-0 z-40 hidden bg-black/50 lg:hidden"></div>
+
+  <div class="mx-auto flex w-full max-w-7xl gap-6 px-4 py-6 sm:px-6">
+    <div id="nf-sidebar"></div>
+
+    <main id="nf-main" class="min-w-0 flex-1">
+      <header class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="nf-icon-btn" aria-label="Back to notes">
+            <i data-lucide="arrow-left" class="h-5 w-5"></i>
+          </a>
+          <h1 id="nf-title" class="text-2xl font-bold tracking-tight">Note</h1>
+        </div>
+      </header>
+
+      <div class="grid gap-4 lg:grid-cols-[1fr_18rem]">
+        <!-- Full note content (styled like index page cards) -->
+        <section class="nf-card relative overflow-hidden p-4 pl-5 sm:p-5 sm:pl-6">
+          <span id="nf-colour-strip" class="absolute inset-y-0 left-0 w-1.5"></span>
+          <h2 id="nf-note-title" class="mb-2 text-lg font-semibold"></h2>
+          <div id="nf-chips" class="mb-3 flex flex-wrap items-center gap-1.5"></div>
+          <div id="nf-content" class="md-body min-h-48"></div>
+        </section>
+
+        <!-- Side panel -->
+        <aside class="nf-card flex flex-col gap-3 p-4">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-[var(--nf-ink-soft)]">Details</h2>
+          <div id="nf-meta" class="flex flex-col gap-2 text-sm"></div>
+          <a id="nf-edit-side" href="#" class="nf-btn nf-btn-primary w-full">
+            <i data-lucide="pencil" class="h-4 w-4"></i>
+            <span>Edit note</span>
+          </a>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <footer id="nf-footer"></footer>
+  <div id="nf-modal-root"></div>
+
+  <script type="module">
+    import { initLayout } from './js/layout.js';
+    import { getNote, COLOURS, isOverdue, stripMarkdown } from './js/notes.js';
+    import { el, icons, toast, renderMarkdown, formatDate, timeAgo } from './js/ui.js';
+    import { t } from './js/i18n.js';
+
+    initLayout('notes');
+
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    const note = id ? getNote(id) : null;
+
+    if (!note) {
+      toast('Note not found', 'error');
+      location.replace('index.html');
+      throw new Error('note not found');
+    }
+
+    const colour = (COLOURS.find((c) => c.id === note.colour) ?? COLOURS[0]);
+    document.title = `${note.title || 'Note'} · NoteFlow`;
+    document.getElementById('nf-title').textContent = note.title || 'Untitled note';
+
+    const editorUrl = `note-editor.html?id=${encodeURIComponent(note.id)}`;
+    document.getElementById('nf-edit-side').href = editorUrl;
+    document.getElementById('nf-colour-strip').style.background = colour.hex;
+    document.getElementById('nf-note-title').textContent = note.title || 'Untitled note';
+
+    const chips = document.getElementById('nf-chips');
+    chips.append(el('span', { class: 'nf-chip', text: note.category }));
+    (note.tags || []).forEach((tag) => chips.append(el('span', { class: 'nf-chip', text: `#${tag}` })));
+    if (note.dueDate) {
+      const overdue = isOverdue(note.dueDate);
+      chips.append(el('span', {
+        class: 'nf-chip',
+        style: overdue ? 'color:var(--nf-danger);border-color:var(--nf-danger)' : '',
+        text: `Due ${formatDate(note.dueDate)}`,
+      }));
+    }
+
+    // Render full markdown content
+    document.getElementById('nf-content').innerHTML = renderMarkdown(note.content || '');
+
+    // Side panel metadata
+    const meta = document.getElementById('nf-meta');
+    meta.append(el('div', { class: 'flex items-center gap-2' }, [
+      el('span', { class: 'nf-chip', text: note.category }),
+      el('span', { class: 'h-3 w-3 rounded-full', style: `background:${colour.hex}` }),
+    ]));
+    if (note.tags && note.tags.length) {
+      const tagWrap = el('div', { class: 'flex flex-wrap gap-1' });
+      note.tags.forEach((tag) => tagWrap.append(el('span', { class: 'nf-chip', text: `#${tag}` })));
+      meta.append(tagWrap);
+    }
+    if (note.dueDate) {
+      const overdue = isOverdue(note.dueDate);
+      meta.append(el('span', {
+        class: 'nf-chip',
+        style: overdue ? 'color:var(--nf-danger);border-color:var(--nf-danger)' : '',
+        text: `Due ${formatDate(note.dueDate)}`,
+      }));
+    }
+    meta.append(el('span', { class: 'text-xs text-[var(--nf-ink-soft)]', text: `Updated ${timeAgo(note.updatedAt)}` }));
+    meta.append(el('span', { class: 'text-xs text-[var(--nf-ink-soft)]', text: `Created ${formatDate(note.createdAt)}` }));
+
+    icons();
+  </script>
+</body>
+</html>

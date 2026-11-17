@@ -155,9 +155,9 @@ export function attachValidation({ fields, form = null, onValidityChange = null,
   };
 }
 
-/** Live character counter: "123 / 5000", turning red past 90%. */
+/** Live character counter: "123 characters" (unlimited when no max given). */
 export function updateCounter(input, counter, max) {
   const len = input.value.length;
-  counter.textContent = `${len} / ${max}`;
-  counter.style.color = len > max * 0.9 ? 'var(--nf-danger)' : '';
+  counter.textContent = max ? `${len} / ${max}` : `${len} characters`;
+  counter.style.color = max && len > max * 0.9 ? 'var(--nf-danger)' : '';
 }

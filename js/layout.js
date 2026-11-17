@@ -103,25 +103,31 @@ function buildSidebar(active) {
   if (!host) return;
 
   const items = LINKS.map((link) => {
-    const a = el('a', { href: link.href, class: 'nf-side-link' }, [
-      el('span', { html: `<i data-lucide="${link.icon}" class="h-4 w-4 shrink-0"></i>` }),
-      el('span', { text: t(link.key) }),
+    const isActive = link.id === active;
+    const a = el('a', {
+      href: link.href,
+      class: `nf-side-link flex justify-between items-center gap-2 rounded-xl px-3 py-1.5 text-sm ${isActive ? 'bg-[var(--nf-brand)] text-white' : ''}`,
+      'aria-current': isActive ? 'page' : undefined,
+    }, [
+      el('div', { class: 'flex items-center gap-2 flex-1 min-w-0' }, [
+        el('span', { html: `<i data-lucide="${link.icon}" class="h-3.5 w-3.5 shrink-0 ${isActive ? 'text-white' : ''}"></i>` }),
+        el('span', { text: t(link.key), class: isActive ? 'text-white' : '' }),
+      ]),
       link.count
         ? el('span', {
           'data-count': link.count,
-          class: 'ml-auto rounded-full px-2 py-0.5 text-xs font-semibold',
-          style: 'background:var(--nf-input);color:var(--nf-ink-soft)',
+          class: 'rounded-full px-1.5 py-0.5 text-[0.7rem] font-semibold shrink-0 whitespace-nowrap',
+          style: isActive ? 'background:rgba(255,255,255,.2);color:#fff' : 'background:var(--nf-input);color:var(--nf-ink-soft)',
         }, document.createTextNode('0'))
         : null,
     ]);
-    if (active === link.id) a.setAttribute('aria-current', 'page');
     a.addEventListener('click', () => toggleDrawer(false)); // close drawer on mobile
     return a;
   });
 
   const aside = el('aside', {
     id: 'nf-sidebar-panel',
-    class: 'nf-card nf-drawer fixed inset-y-0 left-0 z-50 w-64 overflow-y-auto rounded-none border-l-0 p-3 lg:sticky lg:top-20 lg:z-auto lg:w-60 lg:self-start lg:rounded-2xl lg:border',
+    class: 'nf-card nf-drawer fixed inset-y-0 left-0 z-50 overflow-y-auto rounded-none border-l-0 p-2 lg:sticky lg:top-0 lg:h-screen lg:z-auto lg:w-64 lg:self-start lg:rounded-2xl lg:border',
   }, el('nav', { class: 'flex flex-col gap-1', 'aria-label': 'Main' }, items));
 
   host.replaceChildren(aside);

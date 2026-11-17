@@ -211,7 +211,7 @@ export function iconBtn(icon, label, onClick, { danger = false } = {}) {
  */
 export function buildNoteCard(note, actions = {}) {
   const hex = (COLOURS.find((c) => c.id === note.colour) ?? COLOURS[0]).hex;
-  const card = el('article', { class: 'nf-card relative flex flex-col gap-3 overflow-hidden p-4 pl-5' });
+  const card = el('article', { class: 'nf-card nf-note-card relative flex flex-col gap-3 overflow-hidden p-4 pl-5' });
   card.append(el('span', { class: 'absolute inset-y-0 left-0 w-1.5', style: `background:${hex}` }));
 
   if (note.pinned) {
@@ -223,9 +223,10 @@ export function buildNoteCard(note, actions = {}) {
   }
 
   // Header row: explicit "Edit note" button at the top-left + title link
+  const viewUrl = `note.html?id=${encodeURIComponent(note.id)}`;
   const editorUrl = `note-editor.html?id=${encodeURIComponent(note.id)}`;
   const title = el('a', {
-    href: editorUrl,
+    href: viewUrl,
     class: 'min-w-0 flex-1 line-clamp-2 pr-6 text-base font-semibold hover:underline',
   }, document.createTextNode(note.title || t('note.untitled')));
   card.append(el('div', { class: 'flex items-start gap-1' }, [
@@ -271,6 +272,14 @@ export function buildNoteCard(note, actions = {}) {
     el('span', { class: 'text-xs text-[var(--nf-ink-soft)]', text: timeAgo(note.updatedAt) }),
     buttons,
   ]));
+
+  // Clicking anywhere on the card (except buttons/links) opens the full-screen view.
+  card.style.cursor = 'pointer';
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('a, button')) return;
+    location.href = viewUrl;
+  });
+
   return card;
 }
 
